@@ -24,12 +24,19 @@ eval rate:            40.26 tokens/s,
 #### Reasoning-Fast
 
 total duration:       1m7.27525765s
+
 load duration:        22.045765107s
+
 prompt eval count:    15 token(s)
+
 prompt eval duration: 56.060416ms
+
 prompt eval rate:     267.57 tokens/s
+
 eval count:           1721 token(s)
+
 eval duration:        43.38897546s
+
 eval rate:            39.66 tokens/s
 
 ---
