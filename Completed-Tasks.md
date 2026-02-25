@@ -27,4 +27,18 @@ eval rate:            39.66 tokens/s
 
 ---
 
+### 2. Web UI Installed and Benchmarked Against Base:
+2a. Benchmark - Fast Lane - Web UI
+
+#### Coder-Fast 
+
+eval rate:            39.59 tokens/s
+
+#### Reasoning-Fast 
+
+eval rate:            38.42 tokens/s
+
+---
+
+
 ## Git Repo Global Checklist
