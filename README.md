@@ -2,7 +2,7 @@
 
 > *"Built in the dark. Runs in the dark. Occasionally catches fire in the dark."*
 
-[![Status](https://img.shields.io/badge/status-gloriously%20unstable-red)]()
+[![Status](https://img.shields.io/badge/status-Phase%205%20gloriously%20unstable-red)]()
 [![Hardware](https://img.shields.io/badge/GPU-RTX%204090%2024GB-76b900)]()
 [![OS](https://img.shields.io/badge/OS-Pop!__OS-48B9C7)]()
 [![Vibe](https://img.shields.io/badge/vibe-grey%20hat%20chaos-black)]()
