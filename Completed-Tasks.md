@@ -5,14 +5,14 @@
 
 #### Coder-Fast
 
-total duration:       34.015996383s
-load duration:        3.46295846s
-prompt eval count:    38 token(s)
-prompt eval duration: 40.531107ms
-prompt eval rate:     937.55 tokens/s
-eval count:           1176 token(s)
-eval duration:        29.208957446s
-eval rate:            40.26 tokens/s
+total duration:       34.015996383s,
+load duration:        3.46295846s,
+prompt eval count:    38 token(s),
+prompt eval duration: 40.531107ms,
+prompt eval rate:     937.55 tokens/s,
+eval count:           1176 token(s),
+eval duration:        29.208957446s,
+eval rate:            40.26 tokens/s,
 
 #### Reasoning-Fast
 
