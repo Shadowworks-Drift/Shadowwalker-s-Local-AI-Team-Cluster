@@ -64,10 +64,15 @@ Establish Multi Agent Python Environment
 
 Run and Tested Multi Agnet Workflow:-
   ✅ Architect plans
+  
   ✅ Coder implements  
+  
   ✅ Critic reviews with structured verdict
+  
   ✅ Python routes deterministically — PASS exits, FAIL loops
+  
   ✅ Revision history logged on state
+  
   ✅ Max revision safety net
 
 ---
