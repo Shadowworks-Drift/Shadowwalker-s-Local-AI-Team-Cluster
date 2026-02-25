@@ -1,0 +1,142 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.manifest
+*.spec
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pyenv/
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+secrets.json
+config.local.json
+*_secret*
+*_key*
+*.pem
+*.key
+
+# ── Databases ────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ── Memory & Vector Stores ───────────────────────────────────────────────────
+memory/
+chroma/
+*.chroma
+.chroma/
+jobs.db
+file_changes.db
+file_watcher.db
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+file_watcher.log
+
+# ── Models & Weights (never commit these) ────────────────────────────────────
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+models/
+weights/
+
+# ── Ollama ────────────────────────────────────────────────────────────────────
+.ollama/
+
+# ── CrewAI ────────────────────────────────────────────────────────────────────
+.crewai/
+crewai_telemetry/
+
+# ── ComfyUI ───────────────────────────────────────────────────────────────────
+output/
+input/
+temp/
+ComfyUI/models/
+ComfyUI/output/
+ComfyUI/input/
+*.safetensors
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*~
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+.docker/
+docker-compose.override.yml
+
+# ── Conda ─────────────────────────────────────────────────────────────────────
+.conda/
+conda-meta/
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+*.orig
+.cache/
+.hypothesis/
+scratch/
+sandbox/
