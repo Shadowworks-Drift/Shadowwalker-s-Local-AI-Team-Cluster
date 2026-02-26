@@ -1,8 +1,8 @@
-from crewai.flow.flow import Flow, listen, start, router
+from crewai.flow.flow import Flow, start
 from crewai import Task, Crew, Process
 from pydantic import BaseModel
 from agents import architect, coder, critic
-from typing import Optional
+from typing import Optional, Callable
 
 # ── State ─────────────────────────────────────────────────────────────────────
 class MeshState(BaseModel):
@@ -14,6 +14,20 @@ class MeshState(BaseModel):
     revision_count: int = 0
     max_revisions: int = 3
     history: list = []          # revision log — seed of braid memory
+
+# ── Event Callback ────────────────────────────────────────────────────────────
+_event_callback: Optional[Callable] = None
+
+def set_event_callback(cb: Callable):
+    global _event_callback
+    _event_callback = cb
+
+def emit(event_type: str, agent: str, message: str, data: dict = None):
+    """Emit an event — routes to callback if set, otherwise prints."""
+    if _event_callback:
+        _event_callback(event_type, agent, message, data or {})
+    else:
+        print(message)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def run_single_agent(agent, description: str, context_str: str = "") -> str:
@@ -35,17 +49,47 @@ def extract_verdict(review_text: str) -> str:
         return "PASS"
     elif "VERDICT: FAIL" in upper:
         return "FAIL"
-    # Fallback — if Critic didn't follow format, treat as FAIL
     return "FAIL"
 
 # ── Flow ──────────────────────────────────────────────────────────────────────
 class AgentMeshFlow(Flow[MeshState]):
+    """
+    Single-start flow. Python while loop controls the revision cycle.
+    No @router, no @listen chains — just deterministic control.
+    """
 
     @start()
-    def plan_phase(self):
-        print(f"\n{'='*60}")
-        print(f"🏗️  ARCHITECT — Planning")
-        print(f"{'='*60}")
+    def run_mesh(self):
+        # ── PLAN ──────────────────────────────────────────────────────
+        self._do_plan()
+
+        # ── CODE → REVIEW LOOP ────────────────────────────────────────
+        while True:
+            self._do_code()
+            self._do_review()
+
+            if self.state.verdict == "PASS":
+                emit("routing", "system", "✅ PASS — approved")
+                break
+
+            if self.state.revision_count >= self.state.max_revisions:
+                emit("routing", "system",
+                     f"⚠️ Max revisions ({self.state.max_revisions}) reached — accepting best output")
+                break
+
+            self.state.revision_count += 1
+            emit("routing", "system",
+                 f"🔄 FAIL — routing to revision {self.state.revision_count}/{self.state.max_revisions}")
+
+        # ── FINALISE ──────────────────────────────────────────────────
+        self._do_finalise()
+        return self.state.code
+
+    # ── Phase Methods (not decorated — called by the loop) ────────────
+
+    def _do_plan(self):
+        emit("agent_status", "architect", "architect → working", {"status": "working"})
+        emit("phase_start", "architect", "Planning phase started")
 
         self.state.plan = run_single_agent(
             architect,
@@ -58,20 +102,22 @@ class AgentMeshFlow(Flow[MeshState]):
                 "- Dependencies required"
             )
         )
-        print(f"\n✅ Plan complete ({len(self.state.plan)} chars)")
 
-    @listen(plan_phase)
-    def code_phase(self):
-        print(f"\n{'='*60}")
+        emit("phase_complete", "architect",
+             f"Plan complete ({len(self.state.plan)} chars)",
+             {"plan_preview": self.state.plan[:500]})
+        emit("agent_status", "architect", "architect → complete", {"status": "complete"})
+
+    def _do_code(self):
+        emit("agent_status", "coder", "coder → working", {"status": "working"})
+
         if self.state.revision_count == 0:
-            print(f"💻  CODER — Initial Implementation")
+            emit("phase_start", "coder", "Initial implementation started")
         else:
-            print(f"💻  CODER — Revision {self.state.revision_count}/{self.state.max_revisions}")
-        print(f"{'='*60}")
+            emit("phase_start", "coder",
+                 f"Revision {self.state.revision_count}/{self.state.max_revisions} started")
 
         context = f"ARCHITECTURAL PLAN:\n{self.state.plan}"
-
-        # On revisions, include the Critic's feedback
         if self.state.review:
             context += f"\n\nCRITIC REVIEW (must address ALL issues):\n{self.state.review}"
             context += f"\n\nPREVIOUS CODE (revise this):\n{self.state.code}"
@@ -85,13 +131,15 @@ class AgentMeshFlow(Flow[MeshState]):
             ),
             context_str=context
         )
-        print(f"\n✅ Code complete ({len(self.state.code)} chars)")
 
-    @listen(code_phase)
-    def review_phase(self):
-        print(f"\n{'='*60}")
-        print(f"🔍  CRITIC — Review")
-        print(f"{'='*60}")
+        emit("phase_complete", "coder",
+             f"Code complete ({len(self.state.code)} chars)",
+             {"code_preview": self.state.code[:500]})
+        emit("agent_status", "coder", "coder → complete", {"status": "complete"})
+
+    def _do_review(self):
+        emit("agent_status", "critic", "critic → working", {"status": "working"})
+        emit("phase_start", "critic", "Review phase started")
 
         self.state.review = run_single_agent(
             critic,
@@ -106,46 +154,24 @@ class AgentMeshFlow(Flow[MeshState]):
         )
 
         self.state.verdict = extract_verdict(self.state.review)
-
-        # Log this revision cycle to history
         self.state.history.append({
             "revision": self.state.revision_count,
             "verdict": self.state.verdict,
-            "issues": self.state.review[:500]  # truncated for log
+            "issues": self.state.review[:500]
         })
 
-        print(f"\n{'='*60}")
-        print(f"⚖️   VERDICT: {self.state.verdict} (cycle {self.state.revision_count})")
-        print(f"{'='*60}")
+        emit("verdict", "critic",
+             f"VERDICT: {self.state.verdict} (cycle {self.state.revision_count})",
+             {"verdict": self.state.verdict, "review_preview": self.state.review[:500]})
+        emit("agent_status", "critic", "critic → complete", {"status": "complete"})
 
-    @router(review_phase)
-    def route_verdict(self):
-        """Python controls the loop — no LLM involved in routing."""
-        if self.state.verdict == "PASS":
-            return "approved"
-        elif self.state.revision_count >= self.state.max_revisions:
-            print(f"\n⚠️  Max revisions ({self.state.max_revisions}) reached — accepting best output")
-            return "approved"
-        else:
-            self.state.revision_count += 1
-            return "revise"
+    def _do_finalise(self):
+        emit("job_complete", "system",
+             f"🌑 MESH COMPLETE — {self.state.revision_count} revision cycles, verdict: {self.state.verdict}",
+             {"revision_count": self.state.revision_count, "verdict": self.state.verdict})
 
-    @listen("revise")
-    def revise(self):
-        """Route back to code_phase for another cycle."""
-        print(f"\n🔄  Routing back to Coder for revision {self.state.revision_count}...")
-        self.code_phase()
-        self.review_phase()
-        return self.route_verdict()
-
-    @listen("approved")
-    def finalise(self):
-        print(f"\n{'='*60}")
-        print(f"🌑  MESH COMPLETE")
-        print(f"    Revision cycles: {self.state.revision_count}")
-        print(f"    Final verdict:   {self.state.verdict}")
-        print(f"{'='*60}\n")
-        return self.state.code
+        for agent_name in ["architect", "coder", "critic"]:
+            emit("agent_status", agent_name, f"{agent_name} → idle", {"status": "idle"})
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

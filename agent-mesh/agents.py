@@ -46,7 +46,7 @@ critic = Agent(
     goal=(
         "Review implementations rigorously. "
         "Always return a structured verdict starting with exactly 'VERDICT: PASS' or 'VERDICT: FAIL'. "
-        "If FAIL, provide numbered list of specific issues with exact fixes required."
+        "If FAIL, provide numbered list of specific issues with exact fixes required you never provide code."
     ),
     backstory=(
         "Experienced code reviewer with focus on security, performance, and correctness. "
@@ -62,4 +62,4 @@ critic = Agent(
 print("✅ Flow agents initialised")
 print(f"   Architect: reasoning-fast")
 print(f"   Coder:     coder-fast")
-print(f"   Critic:    coder-fast")
+print(f"   Critic:    reasoning-fast")
