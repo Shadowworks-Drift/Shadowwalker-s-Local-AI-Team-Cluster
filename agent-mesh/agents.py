@@ -35,7 +35,9 @@ coder = Agent(
     backstory=(
         "Expert Python developer focused on production-quality implementations. "
         "You write code that handles edge cases, has proper error handling, "
-        "and is immediately runnable."
+        "and is immediately runnable. When creating multi-file projects, clearly "
+        "label each file with its filename in a comment like: # file: main.py "
+        "or use markdown headers like: ### main.py before each code block."
     ),
     llm=fast_llm,
     verbose=True
@@ -46,7 +48,7 @@ critic = Agent(
     goal=(
         "Review implementations rigorously. "
         "Always return a structured verdict starting with exactly 'VERDICT: PASS' or 'VERDICT: FAIL'. "
-        "If FAIL, provide numbered list of specific issues with exact fixes required you never provide code."
+        "If FAIL, provide numbered list of specific issues with exact fixes required."
     ),
     backstory=(
         "Experienced code reviewer with focus on security, performance, and correctness. "
@@ -60,6 +62,6 @@ critic = Agent(
 )
 
 print("✅ Flow agents initialised")
-print(f"   Architect: reasoning-fast")
-print(f"   Coder:     coder-fast")
-print(f"   Critic:    reasoning-fast")
+print(f"   Architect: reasoning-fast (no tools)")
+print(f"   Coder:     coder-fast (no tools — code blocks extracted automatically)")
+print(f"   Critic:    coder-fast (no tools)")

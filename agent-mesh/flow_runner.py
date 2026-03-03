@@ -3,19 +3,21 @@ from crewai import Task, Crew, Process
 from pydantic import BaseModel
 from agents import architect, coder, critic
 from typing import Optional, Callable
+from tools.file_tools import init_sandbox, archive_workspace, get_workspace_summary
+from tools.code_extractor import process_coder_output
 
-# ── State ─────────────────────────────────────────────────────────────────────
+# -- State ------------------------------------------------------------------
 class MeshState(BaseModel):
     objective: str = ""
     plan: str = ""
     code: str = ""
     review: str = ""
-    verdict: str = ""           # PASS or FAIL
+    verdict: str = ""
     revision_count: int = 0
     max_revisions: int = 3
-    history: list = []          # revision log — seed of braid memory
+    history: list = []
 
-# ── Event Callback ────────────────────────────────────────────────────────────
+# -- Event Callback ---------------------------------------------------------
 _event_callback: Optional[Callable] = None
 
 def set_event_callback(cb: Callable):
@@ -23,15 +25,13 @@ def set_event_callback(cb: Callable):
     _event_callback = cb
 
 def emit(event_type: str, agent: str, message: str, data: dict = None):
-    """Emit an event — routes to callback if set, otherwise prints."""
     if _event_callback:
         _event_callback(event_type, agent, message, data or {})
     else:
         print(message)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers ----------------------------------------------------------------
 def run_single_agent(agent, description: str, context_str: str = "") -> str:
-    """Run a single agent task and return its output as a string."""
     full_description = f"{description}\n\nCONTEXT:\n{context_str}" if context_str else description
     task = Task(
         description=full_description,
@@ -43,7 +43,6 @@ def run_single_agent(agent, description: str, context_str: str = "") -> str:
     return str(result)
 
 def extract_verdict(review_text: str) -> str:
-    """Parse PASS or FAIL from Critic output."""
     upper = review_text.upper()
     if "VERDICT: PASS" in upper:
         return "PASS"
@@ -51,19 +50,16 @@ def extract_verdict(review_text: str) -> str:
         return "FAIL"
     return "FAIL"
 
-# ── Flow ──────────────────────────────────────────────────────────────────────
+# -- Flow -------------------------------------------------------------------
 class AgentMeshFlow(Flow[MeshState]):
-    """
-    Single-start flow. Python while loop controls the revision cycle.
-    No @router, no @listen chains — just deterministic control.
-    """
 
     @start()
     def run_mesh(self):
-        # ── PLAN ──────────────────────────────────────────────────────
+        init_sandbox()
+        emit("routing", "system", "📁 Sandbox initialised")
+
         self._do_plan()
 
-        # ── CODE → REVIEW LOOP ────────────────────────────────────────
         while True:
             self._do_code()
             self._do_review()
@@ -81,11 +77,8 @@ class AgentMeshFlow(Flow[MeshState]):
             emit("routing", "system",
                  f"🔄 FAIL — routing to revision {self.state.revision_count}/{self.state.max_revisions}")
 
-        # ── FINALISE ──────────────────────────────────────────────────
         self._do_finalise()
         return self.state.code
-
-    # ── Phase Methods (not decorated — called by the loop) ────────────
 
     def _do_plan(self):
         emit("agent_status", "architect", "architect → working", {"status": "working"})
@@ -127,19 +120,54 @@ class AgentMeshFlow(Flow[MeshState]):
             description=(
                 "Implement complete, runnable Python code based on the plan. "
                 "Include all imports, full error handling, and a working __main__ example. "
-                "If revision feedback is provided, address every single issue listed."
+                "If revision feedback is provided, address every single issue listed.\n\n"
+                "For multi-file projects, clearly label each file using a markdown header "
+                "before each code block, like:\n"
+                "### main.py\n"
+                "```python\n"
+                "# code here\n"
+                "```\n"
+                "### utils.py\n"
+                "```python\n"
+                "# code here\n"
+                "```"
             ),
             context_str=context
         )
 
-        emit("phase_complete", "coder",
-             f"Code complete ({len(self.state.code)} chars)",
-             {"code_preview": self.state.code[:500]})
+        # ── CODE BLOCK EXTRACTION ─────────────────────────────────────
+        # Parse code blocks from Coder's response and write to sandbox
+        blocks, results = process_coder_output(self.state.code)
+
+        for r in results:
+            if r.get("success"):
+                emit("routing", "coder",
+                     f"📄 Extracted: {r['filename']} ({r.get('size', 0)}b)")
+            else:
+                emit("routing", "coder",
+                     f"⚠️ Write failed: {r.get('filename', '?')} → {r.get('error', 'unknown')}")
+
+        # Log workspace state
+        summary = get_workspace_summary()
+        if summary["files"] > 0:
+            emit("phase_complete", "coder",
+                 f"Code complete ({len(self.state.code)} chars) — {summary['files']} files extracted to disk",
+                 {"code_preview": self.state.code[:500], "workspace": summary["tree"]})
+        else:
+            emit("phase_complete", "coder",
+                 f"Code complete ({len(self.state.code)} chars) — ⚠️ no code blocks found to extract",
+                 {"code_preview": self.state.code[:500]})
+
         emit("agent_status", "coder", "coder → complete", {"status": "complete"})
 
     def _do_review(self):
         emit("agent_status", "critic", "critic → working", {"status": "working"})
         emit("phase_start", "critic", "Review phase started")
+
+        summary = get_workspace_summary()
+        workspace_context = ""
+        if summary["files"] > 0:
+            workspace_context = f"\n\nFILES WRITTEN TO DISK:\n{summary['tree']}"
 
         self.state.review = run_single_agent(
             critic,
@@ -150,7 +178,7 @@ class AgentMeshFlow(Flow[MeshState]):
                 "ISSUES:\n1. [specific issue]\n(or 'None')\n\n"
                 "REQUIRED FIXES:\n1. [exact fix]\n(or 'None')"
             ),
-            context_str=f"CODE TO REVIEW:\n{self.state.code}"
+            context_str=f"CODE TO REVIEW:\n{self.state.code}{workspace_context}"
         )
 
         self.state.verdict = extract_verdict(self.state.review)
@@ -166,6 +194,16 @@ class AgentMeshFlow(Flow[MeshState]):
         emit("agent_status", "critic", "critic → complete", {"status": "complete"})
 
     def _do_finalise(self):
+        summary = get_workspace_summary()
+        if summary["files"] > 0:
+            archive_result = archive_workspace(job_id=self.state.objective[:30].replace(" ", "_"))
+            if archive_result["success"]:
+                emit("routing", "system",
+                     f"📦 Archived: {archive_result['file_count']} files → {archive_result['archive_path']}")
+            else:
+                emit("routing", "system",
+                     f"⚠️ Archive failed: {archive_result.get('error', 'unknown')}")
+
         emit("job_complete", "system",
              f"🌑 MESH COMPLETE — {self.state.revision_count} revision cycles, verdict: {self.state.verdict}",
              {"revision_count": self.state.revision_count, "verdict": self.state.verdict})
@@ -174,7 +212,7 @@ class AgentMeshFlow(Flow[MeshState]):
             emit("agent_status", agent_name, f"{agent_name} → idle", {"status": "idle"})
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# -- Entry point ------------------------------------------------------------
 def run_mesh(objective: str, max_revisions: int = 3) -> str:
     flow = AgentMeshFlow()
     flow.state.objective = objective

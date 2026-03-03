@@ -362,10 +362,10 @@ class MeshDashboard(App):
                                data.get("review_preview") or "")
                     if preview:
                         panel.add_log("─" * 40, "dim")
-                        for line in preview.split('\n')[:12]:
+                        for line in preview.split('\n')[:100]:
                             if line.strip():
                                 panel.add_log(line.strip())
-                        if len(preview.split('\n')) > 12:
+                        if len(preview.split('\n')) > 100:
                             panel.add_log("... (truncated)", "dim")
                         panel.add_log("─" * 40, "dim")
 
